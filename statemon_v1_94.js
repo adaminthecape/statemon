@@ -44,7 +44,6 @@ let statemon = {
 		colors: {
 			background: {
 				colorFalse: '#aa000080', colorTrue: '#00aa0080'
-				// "true": "", "false": "" // inert - too buggy (nvm fixed-ish)
 			}
 		},
 		searchResultsLimit: 200, // limit the search results. you don't want to add 4000 new divs
