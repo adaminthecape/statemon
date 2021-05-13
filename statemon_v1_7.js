@@ -1,5 +1,5 @@
-/** Statemon v1.06 :: Monitor the Vue state on live sites and localhost **/
-/* Notes: */ {
+/** Statemon v1.7 :: Monitor the Vue state on live sites and localhost **/
+let notes = {
     //: Instructions: Open Chrome, then Devtools (f12). Go to Sources, then Snippets.
     //: Add a snippet, name it, paste this script & run it (ctrl+Enter)
     //: Click a button to start ('monitor' to start monitoring)
@@ -22,7 +22,8 @@
     // v1.4: made the browser output much prettier.
     // v1.5: (coming soon) todo: find the state without being given a div name
     // v1.6: added RAM overflow handling & better garbage collection.
-}
+    // v1.7: added search
+};
 /* Initialize variables: */
 let options = {
     intervalMillis: 500, // monitor() will check every x millis (higher = performance, lower = accuracy)
@@ -39,8 +40,7 @@ let options = {
     },
     silence: [
         // add keys here you don't want to hear about
-        'app,loading',
-        //'entities,loading',
+        'app,loading','entities,loading',
         //'app,activeModuleId','app,activePageId'
     ],
     keysBase0: [
@@ -61,9 +61,9 @@ let options = {
 let togglers = {
     // booleans for toggling
     monitoring: false,
-    monitoringBusy: false,
+    monitoringBusy: false, // to prevent concurrent looping
     hideAdded: true, // hide NEW items in the state (set to false if you like clutter)
-    boxOpen: true
+    boxOpen: true // changeBox open/closed
 };
 let cacheNew = {}, // created on first loop of monitorFn
     cacheOld = {}, // doesn't exist until second loop of monitorFn
@@ -73,6 +73,7 @@ let cacheNew = {}, // created on first loop of monitorFn
     changeArray = [], // changes get pushed here
     container = null, // container for the buttons
     changeBox = null, // text box into which to output changes
+    searchBox = null, // box to search the state
     dumpVal = null, // pointer for addToDump
     buttonOffsetTop = 0, // so the buttons aren't on top of each other
     toggler = null, // for toggling buttons
@@ -80,6 +81,7 @@ let cacheNew = {}, // created on first loop of monitorFn
     stateCache = {}, // getStateData() cache
     oldValTemp = null, // temp variable for comparisons
     newValTemp = null, // temp variable for comparisons
+    searchCacheTryingAgain = false, // flag for search function
     ramBox = null; // ram usage indicator
 
 function init() {
@@ -94,15 +96,15 @@ function init() {
     createButton('toggleChanges', toggleChangeBox, 'hide changes');
     createButton('toggleHideAdded', toggleHideAdded, 'show additions');
     createButton('status', null, 'status');
+    createSearchBox();
     createChangeBox();
-    document.addEventListener('keydown', hideChangesOnCtrl);
+    document.addEventListener('keydown', hideChangesOnKey);
 } init(); /* just to collapse it */
 /* Styles and logic for the ui: */
-function hideChangesOnCtrl(e) {
-    // hide the changeBox when ctrl is pressed
-    if(e.keyCode == 17)
+function hideChangesOnKey(e) {
+    // hide the changeBox when a key is pressed
+    if(e.keyCode == 17) // ctrl = 17
     {
-        // ctrl was pressed
         toggleChangeBox();
     }
 }
@@ -117,6 +119,16 @@ function addTheStyles() {
     {
         style.id = 'statemon-style';
         style.innerHTML = `
+            #statemon-search-form-container {
+                display: flex;
+            }
+            #statemon-search-input {
+                flex-grow: 1;
+                width: 85%;
+            }
+            #statemon-search-go {
+                width: 10%;
+            }
             .statemon-container {
                 position: absolute;
                 top: 120px;
@@ -127,6 +139,21 @@ function addTheStyles() {
                 right: 20px;
                 width: 440px;
                 height: 500px;
+                overflow-y: scroll;
+                border: 1px solid green;
+                opacity: 0.9;
+                color: green;
+                padding: 2px;
+                display: flex;
+                flex-direction: column;
+                background: rgba(255,255,255);
+                z-index: 1000000000;
+            }
+            .statemon-searchbox {
+                position: absolute;
+                right: 20px;
+                width: 440px;
+                height: 100px;
                 overflow-y: scroll;
                 border: 1px solid green;
                 opacity: 0.9;
@@ -164,7 +191,7 @@ function addTheStyles() {
             .statemon-button {
                 position: absolute;
                 right: 20px;
-                padding: 10px;
+                padding: 8px;
                 border: 1px solid green;
                 border-radius: 20px;
                 cursor: pointer;
@@ -214,7 +241,6 @@ function createChangeBox() {
     if(box)
     {
         box.id = id;
-        box.innerHTML += 'changes:<br />';
         box.className += 'statemon-changebox';
         box.style.top = 200 + buttonOffsetTop + 'px';
         container?.appendChild(box);
@@ -223,15 +249,44 @@ function createChangeBox() {
     }
 }
 function toggleChangeBox() {
+    toggleBox(changeBox, 'statemon-button-toggleChanges', 'boxOpen', 'show changes', 'hide changes');
+}
+function toggleSearchBox() {
+    toggleBox(searchBox, 'statemon-button-toggleChanges', 'boxOpen', 'show changes', 'hide changes');
+}
+function toggleBox(box, id, toggler, showText, hideText) {
     // show/hide the change box (browser output)
-    if(changeBox)
+    if(box)
     {
-        changeBox.style.display = togglers.boxOpen ? 'none' : 'flex';
-        var btn = document.getElementById('statemon-button-toggleChanges');
-        if(btn) btn.innerText = togglers.boxOpen ? 'show changes' : 'hide changes';
+        box.style.display = togglers[toggler] ? 'none' : 'flex';
+        var el = document.getElementById(id);
+        if(el) el.innerText = togglers[toggler] ? showText : hideText;
     }
 
-    togglers.boxOpen = !togglers.boxOpen;
+    togglers[toggler] = !togglers[toggler];
+}
+function createSearchBox() {
+    let id = 'statemon-searchbox';
+    // remove existing buttons
+    document.getElementById(id)?.remove();
+    // create the button
+    var btn = document.createElement('div');
+    if(btn && container)
+    {
+        btn.id = id;
+        btn.className += id;
+        btn.style.top = 200 + buttonOffsetTop + 'px';
+        container?.appendChild(btn);
+        buttonOffsetTop += 100;
+        searchBox = document.getElementById(id);
+
+        searchBox.innerHTML += `
+        <div id="statemon-search-input-container">
+        <input type="text" placeholder="Search ..." name="statemon-search-input" id="statemon-search-input" />
+        <button onClick="searchCache" id="statemon-search-go">Go</button>
+        </div>
+        `;
+    }
 }
 /* On click listeners: */
 function toggleMonitoring() {
@@ -290,7 +345,7 @@ function logItemToConsole(x, i) {
     if(x.status === 'added' && !togglers.hideAdded)
     {
         console.log(
-            tag + ' ' + i,
+            i,
             x.item,
             options.added.message,
             x.newVal
@@ -299,7 +354,7 @@ function logItemToConsole(x, i) {
     else if(x.status === 'changed')
     {
         console.log(
-            tag + ' ' + i,
+            i,
             x.item,
             options.changed.message,
             options.changed.from, x.oldVal,
@@ -336,6 +391,7 @@ function logItemToBrowser(x, i) {
 }
 /* The hard workers: */
 function getStateData() {
+    /* get the state and copy it to a new object */
     // clear the cache
     stateCache = {};
     // for each key:
@@ -344,7 +400,6 @@ function getStateData() {
         // try to stringify the object
         try
         {
-            // stateCache[key] = JSON.parse(JSON.stringify(state[key]));
             stateCache[key] = JSON.parse(JSON.stringify(state[key]));
         }
         catch(e)
@@ -352,7 +407,7 @@ function getStateData() {
             stateCache[key] = {};
             Object.keys(state[key]).forEach((k) =>
             {
-                // try to copy deeper
+                // try to copy deeper (app or admin needs this to work) (I forgot which)
                 try { stateCache[key][k] = JSON.parse(JSON.stringify(state[key][k])); }
                 catch(e) {/* do nothing */}
             });
@@ -362,11 +417,17 @@ function getStateData() {
     return stateCache;
 }
 function monitor() {
+    /* monitor the state with a loop */ 
     // start checking ram usage
     let ramInterval = setInterval(() => {
-        if(!togglers.monitoring) clearInterval(ramInterval);
-        else 
-        updateRamUsage();
+        if(!togglers.monitoring)
+        {
+            clearInterval(ramInterval);
+        }
+        else
+        {
+            updateRamUsage();
+        }
     }, 1000);
     // check the state exists
     if(state)
@@ -398,11 +459,9 @@ function monitor() {
     }
 }
 function monitorFn() {
-    /* this intended to be inside a loop! */
+    /* this is intended to be inside a loop! */
     if(togglers.monitoringBusy)
     {
-        console.log('busy!');
-
         return;
     }
     else
@@ -444,9 +503,9 @@ function monitorFn() {
                     });
                 }
             });
-        }
 
-        logArrayItems(changeArray);
+            logArrayItems(changeArray);
+        }
 
         // fill the old cache for the next iteration
         // iterateThis(getStateData(), addToDump, cacheOld);
@@ -457,7 +516,7 @@ function monitorFn() {
     }
 }
 function getSnapshot() {
-    // dump the state to the console
+    /* dump the state to the console */
     if(state)
     {
         console.log('snapshot::');
@@ -467,7 +526,7 @@ function getSnapshot() {
     }
 }
 function doStuffToThings(thingy, callback) {
-    // do stuff to all the stuff in the thing
+    /* do stuff to all the stuff in the thing */
     if(isObjWithKeys(thingy))
     {
         // get the keys & recurse
@@ -475,7 +534,7 @@ function doStuffToThings(thingy, callback) {
             iterateThis(thingy[key]);
         });
     }
-    else if(isArray)
+    else if(isReallyAnArray(thingy))
     {
         thingy.forEach((subThingy) =>{
             iterateThis(subThingy);
@@ -523,7 +582,9 @@ function iterateThis(thingy, callback, dump, depth = 0, breadcrumb = [])
         // [...breadcrumb] is the path to the item & [thingy] is the value of the item
     }
 }
+/* Failsafes: */
 function shouldDieBecauseTooMuchRam() {
+    /* check RAM usage and empty vars if full */ 
     if(currentRamUsage() > 500)
     {
         cacheNew = {};
@@ -532,7 +593,7 @@ function shouldDieBecauseTooMuchRam() {
     }
 }
 function trimChanges() {
-    // remove elements from changeBox if it gets too large
+    /* remove elements from changeBox if it gets too large */
     if(changeBox.children.length > 50)
     {
         let count = 0;
@@ -546,6 +607,7 @@ function trimChanges() {
     }
 }
 function updateRamUsage() {
+    /* output RAM usage to the ui */ 
     if(togglers.monitoring)
     {
         let ramBox = document.getElementById('statemon-button-status');
@@ -555,5 +617,32 @@ function updateRamUsage() {
     }
 }
 function currentRamUsage() {
+    /* get current RAM usage */ 
     return Math.round(window.performance.memory.usedJSHeapSize / 1048536);
+}
+/* Search: */
+function searchCache() {
+    /* search the cache for a string */
+    console.log('searching for:', keyword, cacheNew);
+
+    // build a cache if none exists
+    if(Object.keys(cacheNew)?.length === 0 && !togglers.monitoring)
+    {
+        monitorFn();
+        searchCache;
+    }
+
+    // search
+    if(keyword !== '' && Object.keys(cacheNew)?.length > 0)
+    {
+        // iterate over the object and find the keyword
+        Object.keys(cacheNew).forEach((key) =>
+        {
+            if(cacheNew[key].toString().indexOf(keyword) > -1)
+            {
+                // keyword found
+                console.log('found:', key, cacheNew[key]);
+            }
+        });
+    }
 }
