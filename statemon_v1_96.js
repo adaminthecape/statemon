@@ -1,5 +1,5 @@
 let statemon = {
-	/* Statemon */ _version: '1.94', /* Monitor the Vue state on live sites and localhost */
+	/* Statemon */ _version: '1.96', /* Monitor the Vue state on live sites and localhost */
 	notes: {
 		// Instructions: Open Chrome, then Devtools (f12). Go to Sources, then Snippets.
 		// Add a snippet, name it, paste this script & run it (ctrl+Enter)
@@ -635,23 +635,22 @@ let statemon = {
 				// destroy on max count
 				if(!statemon.togglers.monitoring)
 				{
-					if(monitorInterval)
-					{
-						clearInterval(monitorInterval);
-						console.log('Monitoring finished - toggled by user.');
-					}
+					clearInterval(monitorInterval);
+					monitorInterval = null;
+					console.log('Monitoring finished - toggled by user.');
 				}
-
-			    // activate failsafes
-				if(statemon.shouldDieBecauseTooMuchRam())
+				else if(statemon.shouldDieBecauseTooMuchRam())
 				{
 					clearInterval(monitorInterval);
+					monitorInterval = null;
 					console.log('Monitoring finished - too much RAM.');
+			        statemon.trimChanges();
 				}
-				
-			    statemon.trimChanges();
 
-				statemon.monitorFn();
+				if(monitorInterval && statemon.togglers.monitoring)
+				{
+					statemon.monitorFn();
+				}
 			}, statemon.options.intervalMillis);
 		}
 		else
