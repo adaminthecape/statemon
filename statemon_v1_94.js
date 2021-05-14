@@ -30,7 +30,7 @@ let statemon = {
 		// v1.9: style improvements, buttons take up less space
 		// v1.91: changed versioning to avoid hitting 2.0 too early
 		// v1.92: containerized statemon into window.statemon object, made ES6 compliant
-		// v1.94: improved css
+		// v1.94: improved css, appeased lint (mostly)
 		// ----
 		// TODO (please help if you are able):
 		// search without requiring a keyword (with * for wildcard)
@@ -192,7 +192,7 @@ let statemon = {
                 #statemon-search-input { flex-grow: 1; width: 85%; }
                 #statemon-search-filter { flex-grow: 1; width: 85%; }
                 #statemon-search-go { width: 10%; }
-                
+
                 #statemon-container { /* main container */
                     position: absolute;
                     top: 10vh;
@@ -353,8 +353,8 @@ let statemon = {
 
 			statemon.searchBox.innerHTML += `
     <div id="statemon-search-input-container">
-        <input type="text" placeholder="Search the state..." id="statemon-search-input" value="${statemon.searchKeyword}" />
-        <input type="text" placeholder="Filter by tag (delimiter: ;)" id="statemon-search-filter" value="${statemon.searchFiltersString}" />
+        <input type="text" placeholder="Search the state..." id="statemon-search-input" />
+        <input type="text" placeholder="Filter by tag (delimiter: ;)" id="statemon-search-filter" />
         <button onClick="statemon.searchCache()" id="statemon-search-go">Go</button>
     </div>
             `;
@@ -369,8 +369,13 @@ let statemon = {
 			statemon.elTemp = document.getElementById('statemon-button-toggleChanges');
 			if(statemon.elTemp)
 			{
-				statemon.elTemp.style.color = statemon.togglers.boxOpen ? statemon.options.colors.background.colorTrue : statemon.options.colors.background.colorFalse;
-				statemon.elTemp.innerText = statemon.togglers.boxOpen ? 'show changes' : 'hide changes';
+				statemon.elTemp.style.color = statemon.togglers.boxOpen ?
+					statemon.options.colors.background.colorTrue :
+					statemon.options.colors.background.colorFalse;
+
+				statemon.elTemp.innerText = statemon.togglers.boxOpen ?
+					'show changes' :
+					'hide changes';
 			}
 		}
 
@@ -381,7 +386,9 @@ let statemon = {
 		statemon.elTemp = document.getElementById('statemon-button-toggleSearchBox');
 		if(statemon.elTemp)
 		{
-			statemon.elTemp.style.color = statemon.togglers.searchBoxOpen ? statemon.options.colors.background.colorTrue : statemon.options.colors.background.colorFalse;
+			statemon.elTemp.style.color = statemon.togglers.searchBoxOpen ?
+				statemon.options.colors.background.colorTrue :
+				statemon.options.colors.background.colorFalse;
 		}
 
 		// show/hide the search box (browser output)
@@ -391,32 +398,34 @@ let statemon = {
 			statemon.elTemp = document.getElementById('statemon-button-toggleSearch');
 			if(statemon.elTemp)
 			{
-				statemon.elTemp.style.color = statemon.togglers.searchBoxOpen ? statemon.options.colors.background.colorTrue : statemon.options.colors.background.colorFalse;
+				statemon.elTemp.style.color = statemon.togglers.searchBoxOpen ?
+					statemon.options.colors.background.colorTrue :
+					statemon.options.colors.background.colorFalse;
 			}
 		}
 
 		statemon.togglers.searchBoxOpen = !statemon.togglers.searchBoxOpen;
 	},
-	toggleBox(box, id, toggler, showText, hideText)
-	{
-		// show/hide the change box (browser output)
-		if(box)
-		{
-			box.style.display = statemon.togglers[toggler] ? 'none' : 'flex';
-			statemon.elTemp = document.getElementById(id);
-			if(statemon.elTemp) statemon.elTemp.innerText = statemon.togglers[toggler] ? showText : hideText;
-		}
-
-		statemon.togglers[toggler] = !statemon.togglers[toggler];
-	},
 	/* On click listeners: */
 	toggleMonitoring()
 	{
-		statemon.toggleSomething('statemon-button-toggleMonitoring', 'monitoring', statemon.monitor, 'stop monitoring', 'start monitoring');
+		statemon.toggleSomething(
+			'statemon-button-toggleMonitoring',
+			'monitoring',
+			statemon.monitor,
+			'stop monitoring',
+			'start monitoring'
+		);
 	},
 	toggleHideAdded()
 	{
-		statemon.toggleSomething('statemon-button-toggleHideAdded', 'showAdded', null, 'hide additions', 'show additions');
+		statemon.toggleSomething(
+			'statemon-button-toggleHideAdded',
+			'showAdded',
+			null,
+			'hide additions',
+			'show additions'
+		);
 	},
 	toggleSomething(id, bool, callbackFn, textStarted = null, textStopped = null)
 	{
@@ -575,7 +584,10 @@ let statemon = {
 		// TODO: refactor this for other sites:
 		// instead of using keysBase, find the keys in the state
 		// and iterate over them instead
-		statemon.stateKeys = statemon.options.isAluminati ? statemon.options.keysBase : Object.keys(statemon.state);
+		statemon.stateKeys = statemon.options.isAluminati ?
+			statemon.options.keysBase :
+			Object.keys(statemon.state);
+
 		// statemon.options.keysBase.forEach((key) =>
 		statemon.stateKeys.forEach((key) =>
 		{
@@ -793,17 +805,6 @@ let statemon = {
 
 		return statemon.currentRamUsage() > 500;
 	},
-	trimChanges()
-	{
-		/* remove elements from changeBox if it gets too large */
-		if(statemon.changeBox.children.length > 50)
-		{
-			while(statemon.changeBox.firstChild && (statemon.changeBox.children.length > 20))
-			{
-				statemon.changeBox.removeChild(statemon.changeBox.lastChild);
-			}
-		}
-	},
 	updateRamUsage()
 	{
 		/* output RAM usage to the ui */
@@ -868,7 +869,9 @@ let statemon = {
 						{
 							if(key.indexOf(item) > -1)
 							{
-								if(JSON.stringify(statemon.cacheNew[key]).toLowerCase().indexOf(statemon.searchKeyword) > -1)
+								if(JSON.stringify(statemon.cacheNew[key])
+									.toLowerCase()
+									.indexOf(statemon.searchKeyword) > -1)
 								{
 									// keyword found
 									statemon.searchResults.push({
@@ -888,7 +891,9 @@ let statemon = {
 				{
 					if(statemon.searchResults.length < statemon.options.searchResultsLimit)
 					{
-						if(JSON.stringify(statemon.cacheNew[key]).toLowerCase().indexOf(statemon.searchKeyword) > -1)
+						if(JSON.stringify(statemon.cacheNew[key])
+							.toLowerCase()
+							.indexOf(statemon.searchKeyword) > -1)
 						{
 							// keyword found
 							statemon.searchResults.push({
@@ -945,7 +950,10 @@ let statemon = {
 
 			if(statemon.statefulArr2.length > 0)
 			{
-				console.log('Statemon: Vue detected but without access to the state! Vue divs:', statemon.statefulArr2);
+				console.log(
+					'Statemon: Vue detected but without access to the state! Vue divs:',
+					statemon.statefulArr2
+				);
 			}
 		}
 
